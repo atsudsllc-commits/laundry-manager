@@ -334,17 +334,18 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <div class="stat-card">
           <div class="stat-label">Change Machine</div>
           <div class="stat-value" style="color:var(--blue)" id="wk-change">—</div>
-          <div class="stat-sub">cash collected</div>
+          <div class="stat-sub" id="wk-change-sub">cash collected</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Vending</div>
           <div class="stat-value gold" id="wk-vend">—</div>
           <div class="stat-sub" id="wk-vend-sub">—</div>
+        <div class="stat-sub" style="font-size:0.65rem;color:var(--muted)" id="wk-change-note"></div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Total Revenue</div>
           <div class="stat-value green" id="wk-total">—</div>
-          <div class="stat-sub">coin + change + vending</div>
+          <div class="stat-sub" id="wk-total-sub">coin + change + vending</div>
         </div>
       </div>
 
@@ -1041,7 +1042,13 @@ async function loadDashboard() {
     });
     const fWithdrawals=filterByStore(withdrawals,storeId).filter(r=>inRange(r.affective_date,from,to));
 
-    const totalRev=fCollects.reduce((s,r)=>s+parseFloat(r.amount||0),0);
+    // For Bright: revenue = coin + vending only (not change machine)
+    // For Deluxe/All: all collections count as revenue
+    const totalRev=fCollects.filter(r=>{
+      if(storeId!='4') return true;
+      const label=catLabel(r.description);
+      return label!=='Change Machine';
+    }).reduce((s,r)=>s+parseFloat(r.amount||0),0);
     const totalExp=fExpenses.reduce((s,r)=>s+parseFloat(r.amount||0),0);
     const totalPay=fPayrolls.reduce((s,r)=>s+parseFloat(r.amount||0),0);
     const netProfit=totalRev-totalExp-totalPay;
@@ -1167,11 +1174,10 @@ function changeWeek(dir) {
 async function renderWeekly() {
   const storeId = document.getElementById('weekly-store').value;
   if(!currentWeekStart) currentWeekStart = getWeekStartFn()(new Date());
+
   const weekEnd = new Date(currentWeekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
-  // Bright: Tue-Mon, Deluxe: Mon-Sun
-  const dayNames = storeId == 4 ? ['Tue','Mon'] : ['Mon','Sun'];
   document.getElementById('week-label').textContent = getWeekLabel(currentWeekStart);
 
   try {
@@ -1183,31 +1189,47 @@ async function renderWeekly() {
 
     // Get this week's entries
     let weekEntries = storeCollects.filter(r => r.collect_date >= wStart && r.collect_date <= wEnd);
-
-    // Check if Monday has a collection
-    const mondayStr = wStart;
-    const hasMondayCollect = weekEntries.some(r => r.collect_date === mondayStr);
-
-    // Vacation averaging: if no Monday collect, check prev week also missing Monday
     let isAveraged = false;
-    if (!hasMondayCollect && weekEntries.length > 0) {
-      // Check previous week
-      const prevStart = new Date(currentWeekStart);
-      prevStart.setDate(prevStart.getDate() - 7);
-      const prevEnd = new Date(currentWeekStart);
-      prevEnd.setDate(prevEnd.getDate() - 1);
-      const prevStartStr = formatDateStr(prevStart);
-      const prevEndStr = formatDateStr(prevEnd);
-      const prevMondayStr = prevStartStr;
-      const prevWeekEntries = storeCollects.filter(r => r.collect_date >= prevStartStr && r.collect_date <= prevEndStr);
-      const prevHasMonday = prevWeekEntries.some(r => r.collect_date === prevMondayStr);
 
-      if (!prevHasMonday && prevWeekEntries.length > 0) {
-        // Two-week average
-        const combined = [...prevWeekEntries, ...weekEntries];
-        const avgFactor = 0.5;
-        isAveraged = true;
-        weekEntries = combined; // show all entries but note averaging
+    if (storeId == 4) {
+      // Bright Laundry: week is Tue-Mon. Monday collection CLOSES the week.
+      // Check if this week has a Monday collection (weekEnd = Monday)
+      const mondayStr = wEnd; // Monday is the last day of the week
+      const hasMondayCollect = weekEntries.some(r => r.collect_date === mondayStr);
+
+      if (!hasMondayCollect && weekEntries.length > 0) {
+        // Vacation week — no Monday close-out
+        // Get next week's entries and combine
+        const nextStart = new Date(currentWeekStart);
+        nextStart.setDate(nextStart.getDate() + 7);
+        const nextEnd = new Date(nextStart);
+        nextEnd.setDate(nextEnd.getDate() + 6);
+        const nextStartStr = formatDateStr(nextStart);
+        const nextEndStr = formatDateStr(nextEnd);
+        const nextWeekEntries = storeCollects.filter(r => r.collect_date >= nextStartStr && r.collect_date <= nextEndStr);
+
+        if (nextWeekEntries.length > 0) {
+          weekEntries = [...weekEntries, ...nextWeekEntries];
+          isAveraged = true;
+        }
+      }
+    } else {
+      // Deluxe: check Monday is the FIRST day (week start)
+      const mondayStr = wStart;
+      const hasMondayCollect = weekEntries.some(r => r.collect_date === mondayStr);
+      if (!hasMondayCollect && weekEntries.length > 0) {
+        const prevStart = new Date(currentWeekStart);
+        prevStart.setDate(prevStart.getDate() - 7);
+        const prevEnd = new Date(currentWeekStart);
+        prevEnd.setDate(prevEnd.getDate() - 1);
+        const prevStartStr = formatDateStr(prevStart);
+        const prevEndStr = formatDateStr(prevEnd);
+        const prevWeekEntries = storeCollects.filter(r => r.collect_date >= prevStartStr && r.collect_date <= prevEndStr);
+        const prevHasMonday = prevWeekEntries.some(r => r.collect_date === prevStartStr);
+        if (!prevHasMonday && prevWeekEntries.length > 0) {
+          weekEntries = [...prevWeekEntries, ...weekEntries];
+          isAveraged = true;
+        }
       }
     }
 
@@ -1221,27 +1243,57 @@ async function renderWeekly() {
       if (label === 'Coin Collection' || label === 'W&D') coin += amt;
       else if (label === 'Change Machine') change += amt;
       else if (label === 'Vending' || label === 'Vending Collection') vend += amt;
-      else coin += amt; // default other revenue to coin bucket
+      else coin += amt;
     });
 
     if (isAveraged) { coin/=2; change/=2; vend/=2; }
 
-    const total = coin + change + vend;
-    const coinPct = total > 0 ? Math.round(coin/total*100) : 50;
-    const changePct = total > 0 ? Math.round(change/total*100) : 50;
+    // For Bright: revenue = coin + vending only. Change Machine is comparison only.
+    // For Deluxe: revenue = all collections
+    const total = storeId == 4 ? coin + vend : coin + change + vend;
+
+    // Coin vs Change comparison (Bright only)
+    const coinVsChange = coin - change;
+    const coinPct = (coin + change) > 0 ? Math.round(coin/(coin+change)*100) : 50;
+    const changePct = 100 - coinPct;
 
     document.getElementById('wk-coin').textContent = fmt(coin);
     document.getElementById('wk-change').textContent = fmt(change);
     document.getElementById('wk-vend').textContent = fmt(vend);
-    document.getElementById('wk-vend-sub').textContent = storeId == 4 ? 'vending machines' : 'vending';
+    document.getElementById('wk-vend-sub').textContent = storeId == 4 ? 'not in revenue total' : 'included in revenue';
     document.getElementById('wk-total').textContent = fmt(total);
+    if (document.getElementById('wk-total-sub')) {
+      document.getElementById('wk-total-sub').textContent = storeId == 4 ? 'coin + vending only' : 'coin + change + vending';
+    }
+    if (document.getElementById('wk-change-sub')) {
+      document.getElementById('wk-change-sub').textContent = storeId == 4 ? 'comparison only' : 'cash collected';
+    }
 
-    document.getElementById('coin-bar-fill').style.width = coinPct + '%';
-    document.getElementById('change-bar-fill').style.width = changePct + '%';
-    document.getElementById('coin-pct-label').textContent = `Coin — ${coinPct}%`;
-    document.getElementById('change-pct-label').textContent = `Change — ${changePct}%`;
+    // Coin vs change bar — Bright only
+    const coinBarCard = document.getElementById('coin-bar-fill').closest('.card');
+    if (storeId == 4) {
+      coinBarCard.style.display = 'block';
+      document.getElementById('coin-bar-fill').style.width = coinPct + '%';
+      document.getElementById('change-bar-fill').style.width = changePct + '%';
+      document.getElementById('coin-pct-label').textContent = `Coin ${coinPct}% — ${fmt(coin)}`;
+      document.getElementById('change-pct-label').textContent = `Cash ${changePct}% — ${fmt(change)}`;
+      const diff = Math.abs(coinVsChange);
+      let diffNote = document.getElementById('coin-diff-note');
+      if (!diffNote) {
+        diffNote = document.createElement('div');
+        diffNote.id = 'coin-diff-note';
+        diffNote.style.cssText = 'margin-top:10px;font-size:0.82rem;font-weight:500;';
+        document.getElementById('coin-bar-fill').closest('.card-body').appendChild(diffNote);
+      }
+      diffNote.textContent = coinVsChange >= 0
+        ? `▲ Collected ${fmt(diff)} more in coins than cash this week`
+        : `▲ Collected ${fmt(diff)} more in cash than coins this week`;
+      diffNote.style.color = coinVsChange >= 0 ? 'var(--accent)' : 'var(--blue)';
+    } else {
+      coinBarCard.style.display = 'none';
+    }
 
-    // Entries table
+    // Entries table — always show actual entries (not averaged)
     const displayEntries = storeCollects.filter(r => r.collect_date >= wStart && r.collect_date <= wEnd);
     document.getElementById('week-entries-tbody').innerHTML = displayEntries.length ?
       displayEntries.sort((a,b)=>a.collect_date.localeCompare(b.collect_date)).map(r=>`
@@ -1255,27 +1307,6 @@ async function renderWeekly() {
   } catch(e) { console.error(e); toast('Error loading weekly data','error'); }
 }
 
-// ── ENTRY FORMS ───────────────────────────────────────────────────────────────
-function resetForm(type) {
-  if(type==='collect'){
-    document.getElementById('col-amount').value='';
-    document.getElementById('col-date').value=today();
-    document.getElementById('col-custom').value='';
-    updateCollectForm();
-  } else if(type==='expense'){
-    document.getElementById('exp-amount').value='';
-    document.getElementById('exp-desc').value='';
-    document.getElementById('exp-date').value=today();
-  } else if(type==='payroll'){
-    document.getElementById('pay-amount').value='';
-    document.getElementById('pay-desc').value='';
-    document.getElementById('pay-date').value=today();
-  } else if(type==='withdraw'){
-    document.getElementById('with-amount').value='';
-    document.getElementById('with-desc').value='';
-    document.getElementById('with-date').value=today();
-  }
-}
 
 async function submitCollect() {
   const storeId=document.getElementById('col-store').value;
