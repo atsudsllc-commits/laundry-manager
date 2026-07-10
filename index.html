@@ -191,6 +191,24 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
 .shortcut { font-size: 0.68rem; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 20px; cursor: pointer; color: var(--ink-soft); background: var(--white); transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
 .shortcut:hover, .shortcut.active { background: var(--ink); color: var(--white); border-color: var(--ink); }
 
+/* ── DELETE BUTTON ── */
+.delete-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 3px 7px;
+  border-radius: var(--radius);
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+.delete-btn:hover {
+  background: var(--red-pale);
+  color: var(--red);
+  border-color: var(--red-pale);
+}
+
 /* ── TOAST ── */
 #toast { position: fixed; bottom: 28px; right: 28px; background: var(--ink); color: var(--white); padding: 11px 20px; border-radius: var(--radius); font-size: 0.78rem; opacity: 0; transform: translateY(6px); transition: all 0.25s; pointer-events: none; z-index: 9998; }
 #toast.show { opacity: 1; transform: translateY(0); }
@@ -316,12 +334,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <span class="week-label" id="week-label">Loading…</span>
         <button class="week-nav-btn" onclick="changeWeek(1)">Next →</button>
         <button class="week-nav-btn" onclick="goToCurrentWeek()" style="margin-left:auto">Current Week</button>
-        <div class="filter-field">
-          <select id="weekly-store" onchange="onWeeklyStoreChange()" style="font-family:'DM Sans',sans-serif;font-size:0.8rem;padding:7px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--white);outline:none;">
-            <option value="3">Deluxe Coin Laundry</option>
-            <option value="4">Bright Laundry</option>
-          </select>
-        </div>
+        
       </div>
 
       <div class="week-stats">
@@ -432,7 +445,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <div class="card-header"><span class="card-title">Recent Collections</span><button class="btn btn-secondary btn-sm" onclick="loadRecentCollect()">↻ Refresh</button></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Store</th><th>Category</th><th>Amount</th><th>Is Coin</th></tr></thead>
+            <thead><tr><th>Date</th><th>Store</th><th>Category</th><th>Amount</th><th>Is Coin</th><th></th></tr></thead>
             <tbody id="recent-collect-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
@@ -489,7 +502,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <div class="card-header"><span class="card-title">Recent Expenses</span><button class="btn btn-secondary btn-sm" onclick="loadRecentExpense()">↻ Refresh</button></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Store</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+            <thead><tr><th>Date</th><th>Store</th><th>Category</th><th>Description</th><th>Amount</th><th></th></tr></thead>
             <tbody id="recent-expense-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
@@ -537,7 +550,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <div class="card-header"><span class="card-title">Recent Payroll</span><button class="btn btn-secondary btn-sm" onclick="loadRecentPayroll()">↻ Refresh</button></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Recipient</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
+            <thead><tr><th>Date</th><th>Recipient</th><th>Type</th><th>Description</th><th>Amount</th><th></th></tr></thead>
             <tbody id="recent-payroll-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
@@ -583,7 +596,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <div class="card-header"><span class="card-title">Recent Withdrawals</span><button class="btn btn-secondary btn-sm" onclick="loadRecentWithdraw()">↻ Refresh</button></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Store</th><th>Investor</th><th>Description</th><th>Amount</th></tr></thead>
+            <thead><tr><th>Date</th><th>Store</th><th>Investor</th><th>Description</th><th>Amount</th><th></th></tr></thead>
             <tbody id="recent-withdraw-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
           </table>
         </div>
@@ -889,9 +902,10 @@ function firstOfYear() {
 }
 function lastMonth() {
   const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
-  const from=d.toISOString().split('T')[0];
-  const last=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().split('T')[0];
-  return {from,to:last};
+  const from=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  const lastDay=new Date(d.getFullYear(),d.getMonth()+1,0);
+  const to=`${lastDay.getFullYear()}-${String(lastDay.getMonth()+1).padStart(2,'0')}-${String(lastDay.getDate()).padStart(2,'0')}`;
+  return {from,to};
 }
 function inRange(dateStr,from,to) {
   if(from && dateStr<from) return false;
@@ -955,7 +969,7 @@ function showPage(name,el) {
     // Sync weekly store select with global store (exclude 'all')
     const globalStoreId = document.getElementById('globalStore').value;
     if(globalStoreId !== 'all') {
-      document.getElementById('weekly-store').value = globalStoreId;
+      document.getElementById('globalStore').value = globalStoreId;
     }
     currentWeekStart = getWeekStartFn()(new Date());
     renderWeekly();
@@ -971,17 +985,10 @@ function showPage(name,el) {
 function onStoreChange() {
   updateBrightNav();
   loadDashboard();
-  // Also sync weekly-store select
-  const globalStoreId = document.getElementById('globalStore').value;
-  if(globalStoreId !== 'all') {
-    document.getElementById('weekly-store').value = globalStoreId;
-  }
+  
 }
 
-function onWeeklyStoreChange() {
-  currentWeekStart = getWeekStartFn()(new Date());
-  renderWeekly();
-}
+
 
 // ── FORM ADAPTERS ─────────────────────────────────────────────────────────────
 function updateCollectForm() {
@@ -1166,7 +1173,7 @@ function getTuesdayOf(date) {
   return d;
 }
 
-function formatDateStr(d) { return d.toISOString().split('T')[0]; }
+function formatDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
 function getWeekLabel(start) {
   const end = new Date(start);
@@ -1179,7 +1186,7 @@ function getWeekLabel(start) {
 const BRIGHT_START = new Date('2025-08-25');
 
 function getWeekStartFn() {
-  const storeId = document.getElementById('weekly-store').value;
+  const storeId = document.getElementById('globalStore').value;
   return storeId == 4 ? getTuesdayOf : getMondayOf;
 }
 
@@ -1195,7 +1202,7 @@ function changeWeek(dir) {
 }
 
 async function renderWeekly() {
-  const storeId = document.getElementById('weekly-store').value;
+  const storeId = document.getElementById('globalStore').value;
   if(!currentWeekStart) currentWeekStart = getWeekStartFn()(new Date());
 
   const weekEnd = new Date(currentWeekStart);
@@ -1393,7 +1400,7 @@ async function loadRecentCollect() {
   const data=await fetchData('collect');
   const recent=[...data].sort((a,b)=>b.collect_date.localeCompare(a.collect_date)).slice(0,15);
   document.getElementById('recent-collect-tbody').innerHTML=recent.length?
-    recent.map(r=>`<tr><td>${r.collect_date}</td><td>${storeName(r.store_id)}</td><td><span class="badge badge-green">${catLabel(r.description)}</span></td><td class="amount-positive">${fmt(r.amount)}</td><td><span class="badge badge-gray">${r.is_coin==='t'?'Yes':'No'}</span></td></tr>`).join('')
+    recent.map(r=>`<tr><td>${r.collect_date}</td><td>${storeName(r.store_id)}</td><td><span class="badge badge-green">${catLabel(r.description)}</span></td><td class="amount-positive">${fmt(r.amount)}</td><td><span class="badge badge-gray">${r.is_coin==='t'?'Yes':'No'}</span></td><td><button class="delete-btn" onclick="deleteEntry('collect','${r.id}','${r.collect_date} ${catLabel(r.description)} ${fmt(r.amount)}')">✕</button></td></tr>`).join('')
     :'<tr><td colspan="5" class="empty">No entries yet.</td></tr>';
 }
 
@@ -1402,7 +1409,7 @@ async function loadRecentExpense() {
   const data=await fetchData('expense');
   const recent=[...data].sort((a,b)=>b.affective_date.localeCompare(a.affective_date)).slice(0,15);
   document.getElementById('recent-expense-tbody').innerHTML=recent.length?
-    recent.map(r=>`<tr><td>${r.affective_date}</td><td>${storeName(r.store_id)}</td><td><span class="badge badge-red">${attrLabel(r.attribute_id)}</span></td><td style="color:var(--ink-soft)">${r.description}</td><td class="amount-negative">${fmt(r.amount)}</td></tr>`).join('')
+    recent.map(r=>`<tr><td>${r.affective_date}</td><td>${storeName(r.store_id)}</td><td><span class="badge badge-red">${attrLabel(r.attribute_id)}</span></td><td style="color:var(--ink-soft)">${r.description}</td><td class="amount-negative">${fmt(r.amount)}</td><td><button class="delete-btn" onclick="deleteEntry('expense','${r.id}','${r.affective_date} ${r.description} ${fmt(r.amount)}')">✕</button></td></tr>`).join('')
     :'<tr><td colspan="5" class="empty">No entries yet.</td></tr>';
 }
 
@@ -1411,7 +1418,7 @@ async function loadRecentPayroll() {
   const data=await fetchData('payroll');
   const recent=[...data].sort((a,b)=>b.affective_date.localeCompare(a.affective_date)).slice(0,15);
   document.getElementById('recent-payroll-tbody').innerHTML=recent.length?
-    recent.map(r=>`<tr><td>${r.affective_date}</td><td>${empName(r.employee_id)}</td><td><span class="badge badge-gold">${r.type}</span></td><td style="color:var(--ink-soft)">${r.description}</td><td class="amount-neutral">${fmt(r.amount)}</td></tr>`).join('')
+    recent.map(r=>`<tr><td>${r.affective_date}</td><td>${empName(r.employee_id)}</td><td><span class="badge badge-gold">${r.type}</span></td><td style="color:var(--ink-soft)">${r.description}</td><td class="amount-neutral">${fmt(r.amount)}</td><td><button class="delete-btn" onclick="deleteEntry('payroll','${r.id}','${r.affective_date} ${empName(r.employee_id)} ${fmt(r.amount)}')">✕</button></td></tr>`).join('')
     :'<tr><td colspan="5" class="empty">No entries yet.</td></tr>';
 }
 
@@ -1420,7 +1427,7 @@ async function loadRecentWithdraw() {
   const data=await fetchData('withdraw');
   const recent=[...data].sort((a,b)=>b.affective_date.localeCompare(a.affective_date)).slice(0,15);
   document.getElementById('recent-withdraw-tbody').innerHTML=recent.length?
-    recent.map(r=>`<tr><td>${r.affective_date}</td><td>${storeName(r.store_id)}</td><td>${invName(r.investor_id)}</td><td style="color:var(--ink-soft)">${r.description}</td><td class="amount-negative">${fmt(r.amount)}</td></tr>`).join('')
+    recent.map(r=>`<tr><td>${r.affective_date}</td><td>${storeName(r.store_id)}</td><td>${invName(r.investor_id)}</td><td style="color:var(--ink-soft)">${r.description}</td><td class="amount-negative">${fmt(r.amount)}</td><td><button class="delete-btn" onclick="deleteEntry('withdraw','${r.id}','${r.affective_date} ${invName(r.investor_id)} ${fmt(r.amount)}')">✕</button></td></tr>`).join('')
     :'<tr><td colspan="5" class="empty">No entries yet.</td></tr>';
 }
 
@@ -1507,6 +1514,27 @@ function downloadCSV(rows,headers,filename) {
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download=filename; a.click();
 }
+// ── DELETE ENTRY ──────────────────────────────────────────────────────────────
+async function deleteEntry(tab, id, label) {
+  const confirmed = confirm(`Delete this entry?\n\n${label}\n\nThis cannot be undone.`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API}/api/${tab}/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    invalidate(tab);
+    toast('✓ Entry deleted');
+    // Refresh the relevant recent table
+    if (tab === 'collect') loadRecentCollect();
+    if (tab === 'expense') loadRecentExpense();
+    if (tab === 'payroll') loadRecentPayroll();
+    if (tab === 'withdraw') loadRecentWithdraw();
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
 function exportRevenue(){if(!window._revData){toast('Apply filters first.','error');return;}downloadCSV(window._revData,['id','store_id','amount','description','collect_date','is_coin'],'revenue.csv');}
 function exportExpenses(){if(!window._expData){toast('Apply filters first.','error');return;}downloadCSV(window._expData,['id','store_id','attribute_id','amount','description','affective_date'],'expenses.csv');}
 function exportPayroll(){if(!window._payData){toast('Apply filters first.','error');return;}downloadCSV(window._payData,['id','employee_id','amount','type','description','affective_date'],'payroll.csv');}
