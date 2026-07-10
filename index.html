@@ -318,7 +318,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <span id="week-avg-note" class="week-note" style="display:none">2-week average</span>
         <button class="week-nav-btn" onclick="goToCurrentWeek()" style="margin-left:auto">Current Week</button>
         <div class="filter-field">
-          <select id="weekly-store" onchange="renderWeekly()" style="font-family:'DM Sans',sans-serif;font-size:0.8rem;padding:7px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--white);outline:none;">
+          <select id="weekly-store" onchange="onWeeklyStoreChange()" style="font-family:'DM Sans',sans-serif;font-size:0.8rem;padding:7px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--white);outline:none;">
             <option value="3">Deluxe Coin Laundry</option>
             <option value="4">Bright Laundry</option>
           </select>
@@ -951,7 +951,12 @@ function showPage(name,el) {
   if(name==='bright-vending') loadBrightVending();
 }
 
-function onStoreChange() { loadDashboard(); }
+function onStoreChange() { updateBrightNav(); loadDashboard(); }
+
+function onWeeklyStoreChange() {
+  currentWeekStart = getWeekStartFn()(new Date());
+  renderWeekly();
+}
 
 // ── FORM ADAPTERS ─────────────────────────────────────────────────────────────
 function updateCollectForm() {
@@ -1025,7 +1030,8 @@ async function loadDashboard() {
     ]);
     const fCollects=filterByStore(collects,storeId).filter(r=>inRange(r.collect_date,from,to));
     const fExpenses=filterByStore(expenses,storeId).filter(r=>inRange(r.affective_date,from,to));
-    const fPayrolls=payrolls.filter(r=>inRange(r.affective_date,from,to));
+    const fPayrolls=payrolls.filter(r=>inRange(r.affective_date,from,to))
+      .filter(r=> storeId==='all' ? true : storeId=='4' ? r.employee_id=='3' : r.employee_id!='3');
     const fWithdrawals=filterByStore(withdrawals,storeId).filter(r=>inRange(r.affective_date,from,to));
 
     const totalRev=fCollects.reduce((s,r)=>s+parseFloat(r.amount||0),0);
@@ -1106,8 +1112,18 @@ let currentWeekStart = null;
 
 function getMondayOf(date) {
   const d = new Date(date);
-  const day = d.getDay(); // 0=Sun, 1=Mon...
+  const day = d.getDay();
   const diff = (day === 0) ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function getTuesdayOf(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun,1=Mon,2=Tue...
+  // Find most recent Tuesday
+  const diff = day === 0 ? -5 : day === 1 ? -6 : 2 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0,0,0,0);
   return d;
@@ -1125,23 +1141,30 @@ function getWeekLabel(start) {
 // Bright Laundry started Aug 25, 2025 (Monday)
 const BRIGHT_START = new Date('2025-08-25');
 
+function getWeekStartFn() {
+  const storeId = document.getElementById('weekly-store').value;
+  return storeId == 4 ? getTuesdayOf : getMondayOf;
+}
+
 function goToCurrentWeek() {
-  currentWeekStart = getMondayOf(new Date());
+  currentWeekStart = getWeekStartFn()(new Date());
   renderWeekly();
 }
 
 function changeWeek(dir) {
-  if(!currentWeekStart) currentWeekStart = getMondayOf(new Date());
+  if(!currentWeekStart) currentWeekStart = getWeekStartFn()(new Date());
   currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7);
   renderWeekly();
 }
 
 async function renderWeekly() {
-  if(!currentWeekStart) currentWeekStart = getMondayOf(new Date());
   const storeId = document.getElementById('weekly-store').value;
+  if(!currentWeekStart) currentWeekStart = getWeekStartFn()(new Date());
   const weekEnd = new Date(currentWeekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
+  // Bright: Tue-Mon, Deluxe: Mon-Sun
+  const dayNames = storeId == 4 ? ['Tue','Mon'] : ['Mon','Sun'];
   document.getElementById('week-label').textContent = getWeekLabel(currentWeekStart);
 
   try {
@@ -1407,8 +1430,12 @@ async function loadPayrollView() {
   const from=document.getElementById('pay-from').value;
   const to=document.getElementById('pay-to').value;
   const person=document.getElementById('pay-person-filter').value;
+  const storeId=document.getElementById('globalStore').value;
   const data=await fetchData('payroll');
   let filtered=data.filter(r=>inRange(r.affective_date,from,to));
+  // Filter by store: employee_id=3 is Son (Bright), others are Deluxe/investors
+  if(storeId=='4') filtered=filtered.filter(r=>r.employee_id=='3');
+  else if(storeId=='3') filtered=filtered.filter(r=>r.employee_id!='3');
   if(person){const id=person.replace('inv_','');filtered=filtered.filter(r=>r.employee_id==id);}
   filtered.sort((a,b)=>b.affective_date.localeCompare(a.affective_date));
   const total=filtered.reduce((s,r)=>s+parseFloat(r.amount||0),0);
@@ -1476,12 +1503,7 @@ function updateBrightNav() {
   });
 }
 
-const origOnStoreChange = onStoreChange;
-// Override onStoreChange to also update nav
-function onStoreChange() {
-  updateBrightNav();
-  loadDashboard();
-}
+// onStoreChange updated below to include updateBrightNav
 
 // ── CHART.JS LOADER ────────────────────────────────────────────────────────
 let chartJsLoaded = false;
