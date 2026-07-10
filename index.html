@@ -315,7 +315,6 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
         <button class="week-nav-btn" onclick="changeWeek(-1)">← Prev</button>
         <span class="week-label" id="week-label">Loading…</span>
         <button class="week-nav-btn" onclick="changeWeek(1)">Next →</button>
-        <span id="week-avg-note" class="week-note" style="display:none">2-week average</span>
         <button class="week-nav-btn" onclick="goToCurrentWeek()" style="margin-left:auto">Current Week</button>
         <div class="filter-field">
           <select id="weekly-store" onchange="onWeeklyStoreChange()" style="font-family:'DM Sans',sans-serif;font-size:0.8rem;padding:7px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--white);outline:none;">
@@ -877,9 +876,17 @@ async function loadReferenceData() {
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function fmt(n) { return '$' + parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function today() { return new Date().toISOString().split('T')[0]; }
-function firstOfMonth() { const d=new Date(); d.setDate(1); return d.toISOString().split('T')[0]; }
-function firstOfYear() { return new Date().getFullYear()+'-01-01'; }
+function today() {
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function firstOfMonth() {
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+}
+function firstOfYear() {
+  return `${new Date().getFullYear()}-01-01`;
+}
 function lastMonth() {
   const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
   const from=d.toISOString().split('T')[0];
@@ -1220,7 +1227,6 @@ async function renderWeekly() {
       // No averaging — user will manually handle vacation weeks
     }
 
-    document.getElementById('week-avg-note').style.display = 'none';
 
     // Tally by type
     let coin = 0, change = 0, vend = 0;
