@@ -985,7 +985,11 @@ function showPage(name,el) {
 function onStoreChange() {
   updateBrightNav();
   loadDashboard();
-  
+  // Re-render weekly view if active
+  if(document.getElementById('page-weekly').classList.contains('active')) {
+    currentWeekStart = getWeekStartFn()(new Date());
+    renderWeekly();
+  }
 }
 
 
@@ -1307,6 +1311,27 @@ async function renderWeekly() {
   } catch(e) { console.error(e); toast('Error loading weekly data','error'); }
 }
 
+
+function resetForm(type) {
+  if(type==='collect'){
+    document.getElementById('col-amount').value='';
+    document.getElementById('col-date').value=today();
+    document.getElementById('col-custom').value='';
+    updateCollectForm();
+  } else if(type==='expense'){
+    document.getElementById('exp-amount').value='';
+    document.getElementById('exp-desc').value='';
+    document.getElementById('exp-date').value=today();
+  } else if(type==='payroll'){
+    document.getElementById('pay-amount').value='';
+    document.getElementById('pay-desc').value='';
+    document.getElementById('pay-date').value=today();
+  } else if(type==='withdraw'){
+    document.getElementById('with-amount').value='';
+    document.getElementById('with-desc').value='';
+    document.getElementById('with-date').value=today();
+  }
+}
 
 async function submitCollect() {
   const storeId=document.getElementById('col-store').value;
