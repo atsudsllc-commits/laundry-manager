@@ -944,7 +944,15 @@ function showPage(name,el) {
   if(el) el.classList.add('active');
 
   if(name==='dashboard') loadDashboard();
-  if(name==='weekly') renderWeekly();
+  if(name==='weekly') {
+    // Sync weekly store select with global store (exclude 'all')
+    const globalStoreId = document.getElementById('globalStore').value;
+    if(globalStoreId !== 'all') {
+      document.getElementById('weekly-store').value = globalStoreId;
+    }
+    currentWeekStart = getWeekStartFn()(new Date());
+    renderWeekly();
+  }
   if(name==='entry-collect') { updateCollectForm(); loadRecentCollect(); }
   if(name==='entry-expense') { updateExpenseForm(); loadRecentExpense(); }
   if(name==='entry-payroll') loadRecentPayroll();
@@ -953,7 +961,15 @@ function showPage(name,el) {
   if(name==='bright-vending') loadBrightVending();
 }
 
-function onStoreChange() { updateBrightNav(); loadDashboard(); }
+function onStoreChange() {
+  updateBrightNav();
+  loadDashboard();
+  // Also sync weekly-store select
+  const globalStoreId = document.getElementById('globalStore').value;
+  if(globalStoreId !== 'all') {
+    document.getElementById('weekly-store').value = globalStoreId;
+  }
+}
 
 function onWeeklyStoreChange() {
   currentWeekStart = getWeekStartFn()(new Date());
@@ -1032,8 +1048,8 @@ async function loadDashboard() {
     ]);
     const fCollects=filterByStore(collects,storeId).filter(r=>inRange(r.collect_date,from,to));
     const fExpenses=filterByStore(expenses,storeId).filter(r=>inRange(r.affective_date,from,to));
-    const brightEmpIds=employees.filter(e=>e.store_id==4).map(e=>e.id);
-    const deluxeEmpIds=employees.filter(e=>e.store_id==3).map(e=>e.id);
+    const brightEmpIds=employees.filter(e=>e.store_id==4||(e.description||'').toLowerCase().includes('son')).map(e=>e.id);
+    const deluxeEmpIds=employees.filter(e=>e.store_id==3&&!(e.description||'').toLowerCase().includes('son')).map(e=>e.id);
     const investorIds=investors.map(i=>i.id);
     const fPayrolls=payrolls.filter(r=>inRange(r.affective_date,from,to)).filter(r=>{
       if(storeId==='all') return true;
@@ -1189,7 +1205,6 @@ async function renderWeekly() {
 
     // Get this week's entries
     let weekEntries = storeCollects.filter(r => r.collect_date >= wStart && r.collect_date <= wEnd);
-    let isAveraged = false;
 
     if (storeId == 4) {
       // Bright Laundry: week is Tue-Mon. Monday collection CLOSES the week.
@@ -1197,43 +1212,15 @@ async function renderWeekly() {
       const mondayStr = wEnd; // Monday is the last day of the week
       const hasMondayCollect = weekEntries.some(r => r.collect_date === mondayStr);
 
-      if (!hasMondayCollect && weekEntries.length > 0) {
-        // Vacation week — no Monday close-out
-        // Get next week's entries and combine
-        const nextStart = new Date(currentWeekStart);
-        nextStart.setDate(nextStart.getDate() + 7);
-        const nextEnd = new Date(nextStart);
-        nextEnd.setDate(nextEnd.getDate() + 6);
-        const nextStartStr = formatDateStr(nextStart);
-        const nextEndStr = formatDateStr(nextEnd);
-        const nextWeekEntries = storeCollects.filter(r => r.collect_date >= nextStartStr && r.collect_date <= nextEndStr);
-
-        if (nextWeekEntries.length > 0) {
-          weekEntries = [...weekEntries, ...nextWeekEntries];
-          isAveraged = true;
-        }
-      }
+      // No averaging — user will manually handle vacation weeks
     } else {
       // Deluxe: check Monday is the FIRST day (week start)
       const mondayStr = wStart;
       const hasMondayCollect = weekEntries.some(r => r.collect_date === mondayStr);
-      if (!hasMondayCollect && weekEntries.length > 0) {
-        const prevStart = new Date(currentWeekStart);
-        prevStart.setDate(prevStart.getDate() - 7);
-        const prevEnd = new Date(currentWeekStart);
-        prevEnd.setDate(prevEnd.getDate() - 1);
-        const prevStartStr = formatDateStr(prevStart);
-        const prevEndStr = formatDateStr(prevEnd);
-        const prevWeekEntries = storeCollects.filter(r => r.collect_date >= prevStartStr && r.collect_date <= prevEndStr);
-        const prevHasMonday = prevWeekEntries.some(r => r.collect_date === prevStartStr);
-        if (!prevHasMonday && prevWeekEntries.length > 0) {
-          weekEntries = [...prevWeekEntries, ...weekEntries];
-          isAveraged = true;
-        }
-      }
+      // No averaging — user will manually handle vacation weeks
     }
 
-    document.getElementById('week-avg-note').style.display = isAveraged ? 'inline' : 'none';
+    document.getElementById('week-avg-note').style.display = 'none';
 
     // Tally by type
     let coin = 0, change = 0, vend = 0;
@@ -1246,7 +1233,7 @@ async function renderWeekly() {
       else coin += amt;
     });
 
-    if (isAveraged) { coin/=2; change/=2; vend/=2; }
+    // No averaging applied
 
     // For Bright: revenue = coin + vending only. Change Machine is comparison only.
     // For Deluxe: revenue = all collections
@@ -1472,8 +1459,9 @@ async function loadPayrollView() {
   const data=await fetchData('payroll');
   let filtered=data.filter(r=>inRange(r.affective_date,from,to));
   // Filter by store using employees reference data
-  const brightEmpIds = employees.filter(e=>e.store_id==4).map(e=>e.id);
-  const deluxeEmpIds = employees.filter(e=>e.store_id==3).map(e=>e.id);
+  // Use both store_id and description to identify employees
+  const brightEmpIds = employees.filter(e=>e.store_id==4 || (e.description||'').toLowerCase().includes('son')).map(e=>e.id);
+  const deluxeEmpIds = employees.filter(e=>e.store_id==3 && !(e.description||'').toLowerCase().includes('son')).map(e=>e.id);
   const investorIds = investors.map(i=>i.id);
   if(storeId=='4') filtered=filtered.filter(r=>brightEmpIds.includes(r.employee_id));
   else if(storeId=='3') filtered=filtered.filter(r=>deluxeEmpIds.includes(r.employee_id)||investorIds.includes(r.employee_id));
