@@ -947,6 +947,8 @@ function showPage(name,el) {
   if(name==='entry-expense') { updateExpenseForm(); loadRecentExpense(); }
   if(name==='entry-payroll') loadRecentPayroll();
   if(name==='entry-withdraw') loadRecentWithdraw();
+  if(name==='bright-utilities') loadBrightUtilities();
+  if(name==='bright-vending') loadBrightVending();
 }
 
 function onStoreChange() { loadDashboard(); }
@@ -1789,13 +1791,7 @@ async function loadBrightVending() {
   });
 }
 
-// ── OVERRIDE showPage TO HANDLE BRIGHT PAGES ───────────────────────────────
-const _origShowPage = showPage;
-function showPage(name, el) {
-  _origShowPage(name, el);
-  if (name === 'bright-utilities') loadBrightUtilities();
-  if (name === 'bright-vending') loadBrightVending();
-}
+// showPage extended for bright pages — handled inside main showPage below
 
 // Auto-init if already authenticated
 if(sessionStorage.getItem('auth')==='1') init();
