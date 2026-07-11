@@ -413,7 +413,7 @@ tbody td { padding: 11px 16px; vertical-align: middle; }
             </div>
             <div class="field">
               <label>Sub-Category</label>
-              <select id="col-subcat" onchange="updateCollectForm()">
+              <select id="col-subcat" onchange="if(this.value==='Other') document.getElementById('col-custom-wrap').style.display='flex'; else document.getElementById('col-custom-wrap').style.display='none';">
                 <option value="W&D">W&D (Washers & Dryers)</option>
                 <option value="Vending">Vending</option>
                 <option value="Other">Other (custom)</option>
