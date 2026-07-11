@@ -974,8 +974,16 @@ function showPage(name,el) {
     currentWeekStart = getWeekStartFn()(new Date());
     renderWeekly();
   }
-  if(name==='entry-collect') { updateCollectForm(); loadRecentCollect(); }
-  if(name==='entry-expense') { updateExpenseForm(); loadRecentExpense(); }
+  if(name==='entry-collect') {
+    const gs = document.getElementById('globalStore').value;
+    if(gs !== 'all') document.getElementById('col-store').value = gs;
+    updateCollectForm(); loadRecentCollect();
+  }
+  if(name==='entry-expense') {
+    const gs = document.getElementById('globalStore').value;
+    if(gs !== 'all') document.getElementById('exp-store').value = gs;
+    updateExpenseForm(); loadRecentExpense();
+  }
   if(name==='entry-payroll') loadRecentPayroll();
   if(name==='entry-withdraw') loadRecentWithdraw();
   if(name==='bright-utilities') loadBrightUtilities();
@@ -985,6 +993,14 @@ function showPage(name,el) {
 function onStoreChange() {
   updateBrightNav();
   loadDashboard();
+  // Sync form store selectors
+  const gs = document.getElementById('globalStore').value;
+  if(gs !== 'all') {
+    document.getElementById('col-store').value = gs;
+    document.getElementById('exp-store').value = gs;
+    updateCollectForm();
+    updateExpenseForm();
+  }
   // Re-render weekly view if active
   if(document.getElementById('page-weekly').classList.contains('active')) {
     currentWeekStart = getWeekStartFn()(new Date());
